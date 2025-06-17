@@ -21,6 +21,8 @@ export default function App() {
   const [newUser, setNewUser] = useState({ username: "", password: "" });
   const [newItem, setNewItem] = useState({ name: "", details: "" });
   const [editingItem, setEditingItem] = useState(null);
+  const [rsvpDone, setRsvpDone] = useState(false);
+  const [declined, setDeclined] = useState(false);
   const logout = () => setCurrentUser(null);
 
   const login = async (e) => {
@@ -29,7 +31,13 @@ export default function App() {
     const userRef = doc(db, "users", username.value);
     const userSnap = await getDoc(userRef);
     if (userSnap.exists() && userSnap.data().password === password.value) {
-      setCurrentUser({ username: username.value, role: userSnap.data().role });
+      setCurrentUser({
+        username: username.value,
+        role: userSnap.data().role,
+        coming: userSnap.data().coming || false,
+      });
+      setRsvpDone(!!userSnap.data().coming);
+      setDeclined(false);
     } else {
       alert("Invalid credentials");
     }
@@ -40,7 +48,9 @@ export default function App() {
       setItems(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-      setUsers(snapshot.docs.map((doc) => doc.id));
+      setUsers(
+        snapshot.docs.map((doc) => ({ username: doc.id, ...doc.data() }))
+      );
     });
     return () => {
       unsubItems();
@@ -53,6 +63,7 @@ export default function App() {
     await setDoc(doc(db, "users", newUser.username), {
       password: newUser.password,
       role: "user",
+      coming: false,
     });
     setNewUser({ username: "", password: "" });
   };
@@ -108,15 +119,68 @@ export default function App() {
 
   const cancelEdit = () => setEditingItem(null);
 
+  const confirmArrival = async () => {
+    await updateDoc(doc(db, "users", currentUser.username), { coming: true });
+    setCurrentUser({ ...currentUser, coming: true });
+    setRsvpDone(true);
+  };
+
+  const declineArrival = async () => {
+    await updateDoc(doc(db, "users", currentUser.username), { coming: false });
+    setCurrentUser(null);
+    setDeclined(true);
+  };
+
+  const cancelArrival = async () => {
+    await updateDoc(doc(db, "users", currentUser.username), { coming: false });
+    setCurrentUser({ ...currentUser, coming: false });
+    setRsvpDone(false);
+  };
+
   if (!currentUser) {
     return (
       <div className="p-6 max-w-md mx-auto">
         <h2 className="text-xl font-bold mb-4">Login</h2>
+        {declined && (
+          <p className="text-red-600 mb-2">If you change your mind come again.</p>
+        )}
         <form onSubmit={login} className="space-y-4">
           <input name="username" placeholder="Username" className="border p-2 w-full" />
           <input type="password" name="password" placeholder="Password" className="border p-2 w-full" />
           <button className="bg-blue-600 text-white px-4 py-2 rounded">Login</button>
         </form>
+      </div>
+    );
+  }
+
+  if (!rsvpDone) {
+    return (
+      <div className="p-6 max-w-md mx-auto space-y-4">
+        <p className="font-semibold">Are you coming?</p>
+        <div className="flex gap-2">
+          <button
+            onClick={confirmArrival}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            Yes
+          </button>
+          <button
+            onClick={declineArrival}
+            className="bg-red-600 text-white px-4 py-2 rounded"
+          >
+            No
+          </button>
+        </div>
+        <div className="mt-4">
+          <h3 className="font-semibold">Confirmed Guests</h3>
+          <ul className="list-disc list-inside">
+            {users
+              .filter((u) => u.coming)
+              .map((u) => (
+                <li key={u.username}>{u.username}</li>
+              ))}
+          </ul>
+        </div>
       </div>
     );
   }
@@ -127,9 +191,19 @@ export default function App() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Welcome, {currentUser.username}</h1>
-        <button onClick={logout} className="bg-red-600 text-white px-4 py-2 rounded">
-          Logout
-        </button>
+        <div className="flex gap-2">
+          {currentUser.coming && (
+            <button
+              onClick={cancelArrival}
+              className="bg-yellow-500 text-white px-4 py-2 rounded"
+            >
+              Cancel Arrival
+            </button>
+          )}
+          <button onClick={logout} className="bg-red-600 text-white px-4 py-2 rounded">
+            Logout
+          </button>
+        </div>
       </div>
 
       {isAdmin && (
@@ -153,10 +227,10 @@ export default function App() {
             </div>
             <ul className="mt-2">
               {users.map((u) =>
-                u !== "franjo" ? (
-                  <li key={u} className="flex justify-between mt-1">
-                    <span>{u}</span>
-                    <button onClick={() => deleteUser(u)} className="text-red-500">Delete</button>
+                u.username !== "franjo" ? (
+                  <li key={u.username} className="flex justify-between mt-1">
+                    <span>{u.username}</span>
+                    <button onClick={() => deleteUser(u.username)} className="text-red-500">Delete</button>
                   </li>
                 ) : null
               )}
