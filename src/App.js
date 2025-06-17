@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db } from "./firebase";
 import {
   collection,
@@ -33,6 +33,7 @@ export default function App() {
 
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const messagesRef = useRef(null);
 
   const logout = () => setCurrentUser(null);
 
@@ -81,6 +82,12 @@ export default function App() {
 
     };
   }, []);
+
+  useEffect(() => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const createUser = async () => {
     if (!newUser.username || !newUser.password) return;
@@ -192,6 +199,12 @@ export default function App() {
       timestamp: serverTimestamp(),
     });
     setNewMessage("");
+  };
+
+  const deleteMessage = async (id) => {
+    if (window.confirm("Delete this message?")) {
+      await deleteDoc(doc(db, "messages", id));
+    }
   };
 
 
@@ -497,7 +510,10 @@ export default function App() {
 
           <div>
             <h2 className="font-semibold">Chat</h2>
-            <div className="mt-2 space-y-2">
+            <div
+              className="mt-2 space-y-2 max-h-96 overflow-y-auto border p-2 rounded"
+              ref={messagesRef}
+            >
               {messages.map((m) => {
                 const date = m.timestamp?.seconds
                   ? new Date(m.timestamp.seconds * 1000)
@@ -510,7 +526,17 @@ export default function App() {
                       </div>
                     )}
                     <div className="font-semibold">{m.user}</div>
-                    <div>{m.text}</div>
+                    <div className="flex justify-between items-start">
+                      <span>{m.text}</span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => deleteMessage(m.id)}
+                          className="text-red-600 text-sm ml-2"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
