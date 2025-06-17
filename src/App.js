@@ -20,6 +20,7 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [newUser, setNewUser] = useState({ username: "", password: "" });
   const [newItem, setNewItem] = useState({ name: "", details: "" });
+  const [editingItem, setEditingItem] = useState(null);
 
   const login = async (e) => {
     e.preventDefault();
@@ -84,6 +85,21 @@ export default function App() {
       claimedBy: arrayRemove(user),
     });
   };
+
+  const startEdit = (item) => {
+    setEditingItem({ id: item.id, name: item.name, details: item.details });
+  };
+
+  const saveEdit = async () => {
+    if (!editingItem) return;
+    await updateDoc(doc(db, "items", editingItem.id), {
+      name: editingItem.name,
+      details: editingItem.details,
+    });
+    setEditingItem(null);
+  };
+
+  const cancelEdit = () => setEditingItem(null);
 
   if (!currentUser) {
     return (
@@ -161,25 +177,53 @@ export default function App() {
         <ul className="mt-2 space-y-2">
           {items.map((item) => (
             <li key={item.id} className="border p-2 rounded">
-              <div>
-                <span className="font-bold">{item.name}</span>
-                {item.claimedBy.length > 0 && (
-                  <span className="ml-2 text-sm text-gray-600">
-                    ({item.claimedBy.join(", ")})
-                  </span>
-                )}
-                {" – "}{item.details}
-              </div>
-              {!isAdmin && (
-                <div className="flex justify-between items-center mt-1">
-                  <button
-                    onClick={() => claimItem(item, currentUser.username)}
-                    disabled={item.claimedBy.includes(currentUser.username)}
-                    className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                  >
-                    {item.claimedBy.includes(currentUser.username) ? "Claimed" : "Claim"}
-                  </button>
+              {editingItem && editingItem.id === item.id ? (
+                <div className="space-y-2">
+                  <input
+                    className="border p-2 w-full"
+                    value={editingItem.name}
+                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                  />
+                  <input
+                    className="border p-2 w-full"
+                    value={editingItem.details}
+                    onChange={(e) => setEditingItem({ ...editingItem, details: e.target.value })}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded">
+                      Save
+                    </button>
+                    <button onClick={cancelEdit} className="text-gray-600">
+                      Cancel
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div>
+                    <span className="font-bold">{item.name}</span>
+                    {item.claimedBy.length > 0 && (
+                      <span className="ml-2 text-sm text-gray-600">({item.claimedBy.join(", ")})</span>
+                    )}
+                    {" – "}
+                    {item.details}
+                  </div>
+                  {isAdmin ? (
+                    <button onClick={() => startEdit(item)} className="text-blue-600 mt-1">
+                      Edit
+                    </button>
+                  ) : (
+                    <div className="flex justify-between items-center mt-1">
+                      <button
+                        onClick={() => claimItem(item, currentUser.username)}
+                        disabled={item.claimedBy.includes(currentUser.username)}
+                        className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                      >
+                        {item.claimedBy.includes(currentUser.username) ? "Claimed" : "Claim"}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </li>
           ))}
