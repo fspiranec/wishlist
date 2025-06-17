@@ -149,6 +149,18 @@ export default function App() {
   };
 
   const cancelArrival = async () => {
+    const claimed = items.filter((i) =>
+      i.claimedBy.includes(currentUser.username)
+    );
+    if (claimed.length) {
+      await Promise.all(
+        claimed.map((i) =>
+          updateDoc(doc(db, "items", i.id), {
+            claimedBy: arrayRemove(currentUser.username),
+          })
+        )
+      );
+    }
     await updateDoc(doc(db, "users", currentUser.username), { coming: false });
     setCurrentUser({ ...currentUser, coming: false });
     setRsvpDone(false);
