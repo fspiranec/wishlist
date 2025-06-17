@@ -157,7 +157,7 @@ export default function App() {
       )}
 
       <div>
-        <h2 className="font-semibold">Wish List</h2>
+        <h2 className="font-semibold">Item List</h2>
         <ul className="mt-2 space-y-2">
           {items.map((item) => (
             <li key={item.id} className="border p-2 rounded">
