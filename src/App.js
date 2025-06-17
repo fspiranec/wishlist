@@ -1,4 +1,4 @@
-app_js = """
+
 import React, { useEffect, useState } from "react";
 import { db } from "./firebase";
 import {
@@ -208,9 +208,3 @@ export default function App() {
     </div>
   );
 }
-"""
-
-# Save to App.js
-app_js_path = Path("/mnt/data/franjo-wishlist/src/App.js")
-app_js_path.write_text(app_js)
-"/mnt/data/franjo-wishlist/src/App.js"
