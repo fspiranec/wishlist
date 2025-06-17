@@ -30,8 +30,10 @@ export default function App() {
   const [eventDetails, setEventDetails] = useState("");
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [editText, setEditText] = useState("");
+
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+
   const logout = () => setCurrentUser(null);
 
   const login = async (e) => {
@@ -74,7 +76,9 @@ export default function App() {
       unsubItems();
       unsubUsers();
       unsubInfo();
+
       unsubMessages();
+
     };
   }, []);
 
@@ -179,6 +183,7 @@ export default function App() {
     setRsvpDone(false);
   };
 
+
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
     await addDoc(collection(db, "messages"), {
@@ -188,6 +193,7 @@ export default function App() {
     });
     setNewMessage("");
   };
+
 
   if (!currentUser) {
     return (
@@ -228,9 +234,13 @@ export default function App() {
           <h3 className="font-semibold">Confirmed Guests</h3>
           <ul className="list-disc list-inside">
             {users
+
               .filter((u) => u.coming && u.username !== "admin")
               .map((u, i) => (
                 <li key={u.username}>{i + 1}. {u.username}</li>
+
+
+
               ))}
           </ul>
         </div>
@@ -238,7 +248,10 @@ export default function App() {
     );
   }
 
+
+
   const isAdmin = currentUser.role === "admin";
+
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -298,6 +311,7 @@ export default function App() {
           <h2 className="font-semibold">Confirmed Guests</h2>
           <ul className="mt-2 list-disc list-inside">
             {users
+
               .filter((u) => u.coming && u.username !== "admin")
               .map((u, i) => {
                 const claimed = items
@@ -314,6 +328,9 @@ export default function App() {
                   </li>
                 );
               })}
+
+
+
           </ul>
         </div>
         <div className="col-span-3 space-y-6">
@@ -338,7 +355,16 @@ export default function App() {
               </div>
               <ul className="mt-2">
                 {users.map((u) =>
+
+              
+
+
                   u.role !== "admin" ? (
+
+
+
+
+
                     <li key={u.username} className="flex justify-between mt-1">
                       <span>{u.username}</span>
                       <button onClick={() => deleteUser(u.username)} className="text-red-500">Delete</button>
@@ -468,6 +494,7 @@ export default function App() {
               </ul>
             </div>
           )}
+
           <div>
             <h2 className="font-semibold">Chat</h2>
             <div className="mt-2 space-y-2">
@@ -502,6 +529,7 @@ export default function App() {
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
