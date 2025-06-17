@@ -7,15 +7,14 @@ export default function App() {
   const [newItem, setNewItem] = useState('');
   const [newUser, setNewUser] = useState('');
 
+  // Load from localStorage
   useEffect(() => {
-    const savedWishes = JSON.parse(localStorage.getItem('wishList')) || [];
-    const savedBuyers = JSON.parse(localStorage.getItem('buyersList')) || {};
-    const savedUsers = JSON.parse(localStorage.getItem('users')) || [];
-    setWishList(savedWishes);
-    setBuyersList(savedBuyers);
-    setUsers(savedUsers);
+    setWishList(JSON.parse(localStorage.getItem('wishList')) || []);
+    setBuyersList(JSON.parse(localStorage.getItem('buyersList')) || {});
+    setUsers(JSON.parse(localStorage.getItem('users')) || []);
   }, []);
 
+  // Save to localStorage
   useEffect(() => {
     localStorage.setItem('wishList', JSON.stringify(wishList));
     localStorage.setItem('buyersList', JSON.stringify(buyersList));
@@ -26,6 +25,23 @@ export default function App() {
     if (newItem.trim() !== '') {
       setWishList([...wishList, newItem.trim()]);
       setNewItem('');
+    }
+  };
+
+  const renameWish = (index) => {
+    const newName = prompt('Rename item:', wishList[index]);
+    if (newName && newName.trim() !== '') {
+      const updated = [...wishList];
+      updated[index] = newName.trim();
+      setWishList(updated);
+    }
+  };
+
+  const deleteWish = (index) => {
+    if (window.confirm('Delete this wish item?')) {
+      const updated = [...wishList];
+      updated.splice(index, 1);
+      setWishList(updated);
     }
   };
 
@@ -114,6 +130,18 @@ export default function App() {
                       {user} takes
                     </button>
                   ))}
+                  <button
+                    onClick={() => renameWish(index)}
+                    className="bg-yellow-400 text-white p-1 rounded text-xs"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => deleteWish(index)}
+                    className="bg-red-500 text-white p-1 rounded text-xs"
+                  >
+                    Delete
+                  </button>
                 </div>
               </li>
             ))
