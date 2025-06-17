@@ -21,6 +21,7 @@ export default function App() {
   const [newUser, setNewUser] = useState({ username: "", password: "" });
   const [newItem, setNewItem] = useState({ name: "", details: "" });
   const [editingItem, setEditingItem] = useState(null);
+  const logout = () => setCurrentUser(null);
 
   const login = async (e) => {
     e.preventDefault();
@@ -86,6 +87,12 @@ export default function App() {
     });
   };
 
+  const deleteItem = async (id) => {
+    if (window.confirm("Delete this item?")) {
+      await deleteDoc(doc(db, "items", id));
+    }
+  };
+
   const startEdit = (item) => {
     setEditingItem({ id: item.id, name: item.name, details: item.details });
   };
@@ -118,7 +125,12 @@ export default function App() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Welcome, {currentUser.username}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Welcome, {currentUser.username}</h1>
+        <button onClick={logout} className="bg-red-600 text-white px-4 py-2 rounded">
+          Logout
+        </button>
+      </div>
 
       {isAdmin && (
         <>
@@ -196,6 +208,9 @@ export default function App() {
                     <button onClick={cancelEdit} className="text-gray-600">
                       Cancel
                     </button>
+                    <button onClick={() => deleteItem(editingItem.id)} className="text-red-600">
+                      Delete
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -209,9 +224,14 @@ export default function App() {
                     {item.details}
                   </div>
                   {isAdmin ? (
-                    <button onClick={() => startEdit(item)} className="text-blue-600 mt-1">
-                      Edit
-                    </button>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => startEdit(item)} className="text-blue-600">
+                        Edit
+                      </button>
+                      <button onClick={() => deleteItem(item.id)} className="text-red-600">
+                        Delete
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex justify-between items-center mt-1">
                       <button
