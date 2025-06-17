@@ -23,7 +23,7 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [items, setItems] = useState([]);
   const [newUser, setNewUser] = useState({ username: "", password: "" });
-  const [newItem, setNewItem] = useState({ name: "", details: "" });
+  const [newItem, setNewItem] = useState({ name: "", details: "", max: 0 });
   const [editingItem, setEditingItem] = useState(null);
   const [rsvpDone, setRsvpDone] = useState(false);
   const [declined, setDeclined] = useState(false);
@@ -110,17 +110,22 @@ export default function App() {
     await setDoc(doc(collection(db, "items")), {
       name: newItem.name,
       details: newItem.details,
+      max: Number(newItem.max) || 0,
       claimedBy: [],
     });
-    setNewItem({ name: "", details: "" });
+    setNewItem({ name: "", details: "", max: 0 });
   };
 
   const claimItem = async (item, user) => {
-    if (!item.claimedBy.includes(user)) {
-      await updateDoc(doc(db, "items", item.id), {
-        claimedBy: arrayUnion(user),
-      });
+    if (
+      (item.max > 0 && item.claimedBy.length >= item.max) ||
+      item.claimedBy.includes(user)
+    ) {
+      return;
     }
+    await updateDoc(doc(db, "items", item.id), {
+      claimedBy: arrayUnion(user),
+    });
   };
 
   const returnItem = async (item, user) => {
@@ -136,7 +141,12 @@ export default function App() {
   };
 
   const startEdit = (item) => {
-    setEditingItem({ id: item.id, name: item.name, details: item.details });
+    setEditingItem({
+      id: item.id,
+      name: item.name,
+      details: item.details,
+      max: item.max || 0,
+    });
   };
 
   const saveEdit = async () => {
@@ -144,6 +154,7 @@ export default function App() {
     await updateDoc(doc(db, "items", editingItem.id), {
       name: editingItem.name,
       details: editingItem.details,
+      max: Number(editingItem.max) || 0,
     });
     setEditingItem(null);
   };
@@ -402,6 +413,16 @@ export default function App() {
                   onChange={(e) => setNewItem({ ...newItem, details: e.target.value })}
                   className="border p-2"
                 />
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Max"
+                  value={newItem.max}
+                  onChange={(e) =>
+                    setNewItem({ ...newItem, max: e.target.value })
+                  }
+                  className="border p-2 w-24"
+                />
                 <button onClick={createItem} className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
               </div>
             </div>
@@ -414,7 +435,7 @@ export default function App() {
               {items.map((item) => (
                 <li key={item.id} className="border p-2 rounded">
                   {editingItem && editingItem.id === item.id ? (
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                       <input
                     className="border p-2 w-full"
                     value={editingItem.name}
@@ -424,6 +445,15 @@ export default function App() {
                     className="border p-2 w-full"
                     value={editingItem.details}
                     onChange={(e) => setEditingItem({ ...editingItem, details: e.target.value })}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    className="border p-2 w-full"
+                    value={editingItem.max}
+                    onChange={(e) =>
+                      setEditingItem({ ...editingItem, max: e.target.value })
+                    }
                   />
                   <div className="flex gap-2">
                     <button onClick={saveEdit} className="bg-blue-600 text-white px-3 py-1 rounded">
@@ -441,9 +471,10 @@ export default function App() {
                 <>
                   <div>
                     <span className="font-bold">{item.name}</span>
-                    {item.claimedBy.length > 0 && (
-                      <span className="ml-2 text-sm text-gray-600">({item.claimedBy.join(", ")})</span>
-                    )}
+                    <span className="ml-2 text-sm text-gray-600">
+                      ({item.claimedBy.length}/{item.max > 0 ? item.max : "∞"})
+                      {item.claimedBy.length > 0 && ` ${item.claimedBy.join(", ")}`}
+                    </span>
                     {" – "}
                     {item.details}
                   </div>
@@ -460,10 +491,17 @@ export default function App() {
                     <div className="flex items-center gap-2 mt-1">
                       <button
                         onClick={() => claimItem(item, currentUser.username)}
-                        disabled={item.claimedBy.includes(currentUser.username)}
+                        disabled={
+                          item.claimedBy.includes(currentUser.username) ||
+                          (item.max > 0 && item.claimedBy.length >= item.max)
+                        }
                         className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
                       >
-                        {item.claimedBy.includes(currentUser.username) ? "Claimed" : "Claim"}
+                        {item.claimedBy.includes(currentUser.username)
+                          ? "Claimed"
+                          : item.max > 0 && item.claimedBy.length >= item.max
+                          ? "Full"
+                          : "Claim"}
                       </button>
                       {item.claimedBy.includes(currentUser.username) && (
                         <button
@@ -489,11 +527,11 @@ export default function App() {
                 {items
                   .filter((i) => i.claimedBy.includes(currentUser.username))
                   .map((item) => {
-                    const total = item.claimedBy.length;
+                    const max = item.max > 0 ? item.max : "∞";
                     return (
                       <li key={item.id} className="border p-2 rounded flex justify-between">
                         <span>
-                          {item.name} {item.claimedBy.map((u, i) => `${i + 1}/${total} ${u}`).join(", ")}
+                          {item.name} ({item.claimedBy.length}/{max}) {item.claimedBy.join(", ")}
                         </span>
                         <button
                           onClick={() => returnItem(item, currentUser.username)}
