@@ -162,7 +162,13 @@ export default function App() {
           {items.map((item) => (
             <li key={item.id} className="border p-2 rounded">
               <div>
-                <span className="font-bold">{item.name}</span> – {item.details}
+                <span className="font-bold">{item.name}</span>
+                {item.claimedBy.length > 0 && (
+                  <span className="ml-2 text-sm text-gray-600">
+                    ({item.claimedBy.join(", ")})
+                  </span>
+                )}
+                {" – "}{item.details}
               </div>
               {!isAdmin && (
                 <div className="flex justify-between items-center mt-1">
