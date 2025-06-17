@@ -205,15 +205,18 @@ export default function App() {
           <h3 className="font-semibold">Confirmed Guests</h3>
           <ul className="list-disc list-inside">
             {users
-              .filter((u) => u.coming)
-              .map((u) => (
-                <li key={u.username}>{u.username}</li>
+
+              .filter((u) => u.coming && u.username !== "admin")
+              .map((u, i) => (
+                <li key={u.username}>{i + 1}. {u.username}</li>
+
               ))}
           </ul>
         </div>
       </div>
     );
   }
+
 
 
   const isAdmin = currentUser.role === "admin";
@@ -279,10 +282,25 @@ export default function App() {
           <h2 className="font-semibold">Confirmed Guests</h2>
           <ul className="mt-2 list-disc list-inside">
             {users
-              .filter((u) => u.coming)
-              .map((u) => (
-                <li key={u.username}>{u.username}</li>
-              ))}
+
+              .filter((u) => u.coming && u.username !== "admin")
+              .map((u, i) => {
+                const claimed = items
+                  .filter((it) => it.claimedBy.includes(u.username))
+                  .map((it) => it.name);
+                return (
+                  <li key={u.username}>
+                    {i + 1}. {u.username}
+                    {claimed.length > 0 && (
+                      <span className="ml-1 text-sm text-gray-600">
+                        ({claimed.join(", ")})
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+
+
           </ul>
         </div>
         <div className="col-span-3 space-y-6">
@@ -309,6 +327,7 @@ export default function App() {
                 {users.map((u) =>
 
                   u.role !== "admin" ? (
+
 
 
 
@@ -391,7 +410,7 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex justify-between items-center mt-1">
+                    <div className="flex items-center gap-2 mt-1">
                       <button
                         onClick={() => claimItem(item, currentUser.username)}
                         disabled={item.claimedBy.includes(currentUser.username)}
@@ -399,6 +418,14 @@ export default function App() {
                       >
                         {item.claimedBy.includes(currentUser.username) ? "Claimed" : "Claim"}
                       </button>
+                      {item.claimedBy.includes(currentUser.username) && (
+                        <button
+                          onClick={() => returnItem(item, currentUser.username)}
+                          className="bg-yellow-600 text-white px-3 py-1 rounded"
+                        >
+                          Unclaim
+                        </button>
+                      )}
                     </div>
                     )}
                   </>
