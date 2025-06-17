@@ -205,9 +205,11 @@ export default function App() {
           <h3 className="font-semibold">Confirmed Guests</h3>
           <ul className="list-disc list-inside">
             {users
+
               .filter((u) => u.coming && u.username !== "admin")
               .map((u, i) => (
                 <li key={u.username}>{i + 1}. {u.username}</li>
+
               ))}
           </ul>
         </div>
@@ -215,7 +217,12 @@ export default function App() {
     );
   }
 
+
+
   const isAdmin = currentUser.role === "admin";
+
+
+
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -275,6 +282,7 @@ export default function App() {
           <h2 className="font-semibold">Confirmed Guests</h2>
           <ul className="mt-2 list-disc list-inside">
             {users
+
               .filter((u) => u.coming && u.username !== "admin")
               .map((u, i) => {
                 const claimed = items
@@ -291,6 +299,8 @@ export default function App() {
                   </li>
                 );
               })}
+
+
           </ul>
         </div>
         <div className="col-span-3 space-y-6">
@@ -315,7 +325,12 @@ export default function App() {
               </div>
               <ul className="mt-2">
                 {users.map((u) =>
+
                   u.role !== "admin" ? (
+
+
+
+
                     <li key={u.username} className="flex justify-between mt-1">
                       <span>{u.username}</span>
                       <button onClick={() => deleteUser(u.username)} className="text-red-500">Delete</button>
