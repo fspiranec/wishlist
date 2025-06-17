@@ -12,6 +12,10 @@ import {
   onSnapshot,
   arrayUnion,
   arrayRemove,
+  addDoc,
+  serverTimestamp,
+  query,
+  orderBy,
 } from "firebase/firestore";
 
 export default function App() {
@@ -26,6 +30,10 @@ export default function App() {
   const [eventDetails, setEventDetails] = useState("");
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [editText, setEditText] = useState("");
+
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+
   const logout = () => setCurrentUser(null);
 
   const login = async (e) => {
@@ -58,10 +66,19 @@ export default function App() {
     const unsubInfo = onSnapshot(doc(db, "config", "event"), (snap) => {
       if (snap.exists()) setEventDetails(snap.data().details || "");
     });
+    const unsubMessages = onSnapshot(
+      query(collection(db, "messages"), orderBy("timestamp", "asc")),
+      (snapshot) => {
+        setMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      }
+    );
     return () => {
       unsubItems();
       unsubUsers();
       unsubInfo();
+
+      unsubMessages();
+
     };
   }, []);
 
@@ -166,6 +183,18 @@ export default function App() {
     setRsvpDone(false);
   };
 
+
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+    await addDoc(collection(db, "messages"), {
+      user: currentUser.username,
+      text: newMessage,
+      timestamp: serverTimestamp(),
+    });
+    setNewMessage("");
+  };
+
+
   if (!currentUser) {
     return (
       <div className="p-6 max-w-md mx-auto">
@@ -210,6 +239,8 @@ export default function App() {
               .map((u, i) => (
                 <li key={u.username}>{i + 1}. {u.username}</li>
 
+
+
               ))}
           </ul>
         </div>
@@ -220,8 +251,6 @@ export default function App() {
 
 
   const isAdmin = currentUser.role === "admin";
-
-
 
 
   return (
@@ -301,6 +330,7 @@ export default function App() {
               })}
 
 
+
           </ul>
         </div>
         <div className="col-span-3 space-y-6">
@@ -326,7 +356,11 @@ export default function App() {
               <ul className="mt-2">
                 {users.map((u) =>
 
+              
+
+
                   u.role !== "admin" ? (
+
 
 
 
@@ -460,6 +494,42 @@ export default function App() {
               </ul>
             </div>
           )}
+
+          <div>
+            <h2 className="font-semibold">Chat</h2>
+            <div className="mt-2 space-y-2">
+              {messages.map((m) => {
+                const date = m.timestamp?.seconds
+                  ? new Date(m.timestamp.seconds * 1000)
+                  : null;
+                return (
+                  <div key={m.id} className="border p-2 rounded">
+                    {date && (
+                      <div className="text-xs text-gray-500">
+                        {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    )}
+                    <div className="font-semibold">{m.user}</div>
+                    <div>{m.text}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <input
+                className="border p-2 flex-grow"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+              />
+              <button
+                onClick={sendMessage}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
