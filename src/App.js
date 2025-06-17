@@ -23,6 +23,9 @@ export default function App() {
   const [editingItem, setEditingItem] = useState(null);
   const [rsvpDone, setRsvpDone] = useState(false);
   const [declined, setDeclined] = useState(false);
+  const [eventDetails, setEventDetails] = useState("");
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [editText, setEditText] = useState("");
   const logout = () => setCurrentUser(null);
 
   const login = async (e) => {
@@ -52,9 +55,13 @@ export default function App() {
         snapshot.docs.map((doc) => ({ username: doc.id, ...doc.data() }))
       );
     });
+    const unsubInfo = onSnapshot(doc(db, "config", "event"), (snap) => {
+      if (snap.exists()) setEventDetails(snap.data().details || "");
+    });
     return () => {
       unsubItems();
       unsubUsers();
+      unsubInfo();
     };
   }, []);
 
@@ -119,6 +126,16 @@ export default function App() {
 
   const cancelEdit = () => setEditingItem(null);
 
+  const openEditDetails = () => {
+    setEditText(eventDetails);
+    setEditDetailsOpen(true);
+  };
+
+  const saveDetails = async () => {
+    await setDoc(doc(db, "config", "event"), { details: editText });
+    setEditDetailsOpen(false);
+  };
+
   const confirmArrival = async () => {
     await updateDoc(doc(db, "users", currentUser.username), { coming: true });
     setCurrentUser({ ...currentUser, coming: true });
@@ -156,6 +173,7 @@ export default function App() {
   if (!rsvpDone) {
     return (
       <div className="p-6 max-w-md mx-auto space-y-4">
+        {eventDetails && <p>{eventDetails}</p>}
         <p className="font-semibold">Are you coming?</p>
         <div className="flex gap-2">
           <button
@@ -188,10 +206,40 @@ export default function App() {
   const isAdmin = currentUser.username === "franjo";
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6 max-w-4xl mx-auto">
+      {editDetailsOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded space-y-2 w-80">
+            <textarea
+              className="border p-2 w-full h-32"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={saveDetails}
+                className="bg-blue-600 text-white px-3 py-1 rounded"
+              >
+                Save
+              </button>
+              <button onClick={() => setEditDetailsOpen(false)} className="px-3 py-1">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Welcome, {currentUser.username}</h1>
         <div className="flex gap-2">
+          {isAdmin && (
+            <button
+              onClick={openEditDetails}
+              className="bg-blue-600 text-white px-3 py-1 rounded"
+            >
+              Edit Details
+            </button>
+          )}
           {currentUser.coming && (
             <button
               onClick={cancelArrival}
@@ -205,15 +253,26 @@ export default function App() {
           </button>
         </div>
       </div>
-
-      {isAdmin && (
-        <>
-          <div>
-            <h2 className="font-semibold">Create User</h2>
-            <div className="flex gap-2 mt-2">
-              <input
-                placeholder="Username"
-                value={newUser.username}
+      <div className="grid grid-cols-4 gap-6">
+        <div>
+          <h2 className="font-semibold">Confirmed Guests</h2>
+          <ul className="mt-2 list-disc list-inside">
+            {users
+              .filter((u) => u.coming)
+              .map((u) => (
+                <li key={u.username}>{u.username}</li>
+              ))}
+          </ul>
+        </div>
+        <div className="col-span-3 space-y-6">
+          {isAdmin && (
+            <>
+              <div>
+                <h2 className="font-semibold">Create User</h2>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    placeholder="Username"
+                    value={newUser.username}
                 onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                 className="border p-2"
               />
@@ -223,49 +282,49 @@ export default function App() {
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                 className="border p-2"
               />
-              <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
+                <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
+              </div>
+              <ul className="mt-2">
+                {users.map((u) =>
+                  u.username !== "franjo" ? (
+                    <li key={u.username} className="flex justify-between mt-1">
+                      <span>{u.username}</span>
+                      <button onClick={() => deleteUser(u.username)} className="text-red-500">Delete</button>
+                    </li>
+                  ) : null
+                )}
+              </ul>
             </div>
-            <ul className="mt-2">
-              {users.map((u) =>
-                u.username !== "franjo" ? (
-                  <li key={u.username} className="flex justify-between mt-1">
-                    <span>{u.username}</span>
-                    <button onClick={() => deleteUser(u.username)} className="text-red-500">Delete</button>
-                  </li>
-                ) : null
-              )}
-            </ul>
-          </div>
+
+            <div>
+              <h2 className="font-semibold mt-6">Create Item</h2>
+              <div className="flex gap-2 mt-2">
+                <input
+                  placeholder="Item name"
+                  value={newItem.name}
+                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  className="border p-2"
+                />
+                <input
+                  placeholder="Details"
+                  value={newItem.details}
+                  onChange={(e) => setNewItem({ ...newItem, details: e.target.value })}
+                  className="border p-2"
+                />
+                <button onClick={createItem} className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
+              </div>
+            </div>
+            </>
+          )}
 
           <div>
-            <h2 className="font-semibold mt-6">Create Item</h2>
-            <div className="flex gap-2 mt-2">
-              <input
-                placeholder="Item name"
-                value={newItem.name}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                className="border p-2"
-              />
-              <input
-                placeholder="Details"
-                value={newItem.details}
-                onChange={(e) => setNewItem({ ...newItem, details: e.target.value })}
-                className="border p-2"
-              />
-              <button onClick={createItem} className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
-            </div>
-          </div>
-        </>
-      )}
-
-      <div>
-        <h2 className="font-semibold">Wish List</h2>
-        <ul className="mt-2 space-y-2">
-          {items.map((item) => (
-            <li key={item.id} className="border p-2 rounded">
-              {editingItem && editingItem.id === item.id ? (
-                <div className="space-y-2">
-                  <input
+            <h2 className="font-semibold">Wish List</h2>
+            <ul className="mt-2 space-y-2">
+              {items.map((item) => (
+                <li key={item.id} className="border p-2 rounded">
+                  {editingItem && editingItem.id === item.id ? (
+                    <div className="space-y-2">
+                      <input
                     className="border p-2 w-full"
                     value={editingItem.name}
                     onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
@@ -316,39 +375,41 @@ export default function App() {
                         {item.claimedBy.includes(currentUser.username) ? "Claimed" : "Claim"}
                       </button>
                     </div>
-                  )}
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+                    )}
+                  </>
+                )}
+              </li>
+            ))}
+            </ul>
+          </div>
 
-      {!isAdmin && (
-        <div>
-          <h2 className="font-semibold">My Claimed Items</h2>
-          <ul className="mt-2 space-y-2">
-            {items
-              .filter((i) => i.claimedBy.includes(currentUser.username))
-              .map((item) => {
-                const total = item.claimedBy.length;
-                return (
-                  <li key={item.id} className="border p-2 rounded flex justify-between">
-                    <span>
-                      {item.name} {item.claimedBy.map((u, i) => `${i + 1}/${total} ${u}`).join(", ")}
-                    </span>
-                    <button
-                      onClick={() => returnItem(item, currentUser.username)}
-                      className="text-red-600"
-                    >
-                      Return
-                    </button>
-                  </li>
-                );
-              })}
-          </ul>
+          {!isAdmin && (
+            <div>
+              <h2 className="font-semibold">My Claimed Items</h2>
+              <ul className="mt-2 space-y-2">
+                {items
+                  .filter((i) => i.claimedBy.includes(currentUser.username))
+                  .map((item) => {
+                    const total = item.claimedBy.length;
+                    return (
+                      <li key={item.id} className="border p-2 rounded flex justify-between">
+                        <span>
+                          {item.name} {item.claimedBy.map((u, i) => `${i + 1}/${total} ${u}`).join(", ")}
+                        </span>
+                        <button
+                          onClick={() => returnItem(item, currentUser.username)}
+                          className="text-red-600"
+                        >
+                          Return
+                        </button>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
