@@ -1,248 +1,216 @@
+app_js = """
 import React, { useEffect, useState } from "react";
 import { db } from "./firebase";
 import {
   collection,
-  addDoc,
+  getDoc,
   getDocs,
-  updateDoc,
-  deleteDoc,
   doc,
-  onSnapshot,
   setDoc,
+  deleteDoc,
+  updateDoc,
+  onSnapshot,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 
 export default function App() {
-  const [items, setItems] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
-  const [newItemName, setNewItemName] = useState("");
-  const [newUser, setNewUser] = useState("");
+  const [items, setItems] = useState([]);
+  const [newUser, setNewUser] = useState({ username: "", password: "" });
+  const [newItem, setNewItem] = useState({ name: "", details: "" });
 
-  // Firebase references
-  const itemsRef = collection(db, "items");
-  const usersRef = collection(db, "users");
+  const login = async (e) => {
+    e.preventDefault();
+    const { username, password } = e.target;
+    const userRef = doc(db, "users", username.value);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists() && userSnap.data().password === password.value) {
+      setCurrentUser({ username: username.value, role: userSnap.data().role });
+    } else {
+      alert("Invalid credentials");
+    }
+  };
 
-  // Load data
   useEffect(() => {
-    const unsubItems = onSnapshot(itemsRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setItems(data);
+    const unsubItems = onSnapshot(collection(db, "items"), (snapshot) => {
+      setItems(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
-
-    const unsubUsers = onSnapshot(usersRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => doc.id);
-      setUsers(data);
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      setUsers(snapshot.docs.map((doc) => doc.id));
     });
-
     return () => {
       unsubItems();
       unsubUsers();
     };
   }, []);
 
-  const addItem = async () => {
-    if (!newItemName.trim()) return;
-    await addDoc(itemsRef, {
-      name: newItemName.trim(),
-      details: "",
+  const createUser = async () => {
+    if (!newUser.username || !newUser.password) return;
+    await setDoc(doc(db, "users", newUser.username), {
+      password: newUser.password,
+      role: "user",
+    });
+    setNewUser({ username: "", password: "" });
+  };
+
+  const deleteUser = async (username) => {
+    if (window.confirm("Delete this user?")) {
+      await deleteDoc(doc(db, "users", username));
+    }
+  };
+
+  const createItem = async () => {
+    if (!newItem.name) return;
+    await setDoc(doc(collection(db, "items")), {
+      name: newItem.name,
+      details: newItem.details,
       claimedBy: [],
     });
-    setNewItemName("");
-  };
-
-  const updateItemDetails = async (item) => {
-    const newDetails = prompt("Enter details for item:", item.details || "");
-    if (newDetails !== null) {
-      await updateDoc(doc(db, "items", item.id), {
-        ...item,
-        details: newDetails,
-      });
-    }
-  };
-
-  const deleteItem = async (itemId) => {
-    if (confirm("Delete this item?")) {
-      await deleteDoc(doc(db, "items", itemId));
-    }
-  };
-
-  const renameItem = async (item) => {
-    const newName = prompt("Rename item:", item.name);
-    if (newName && newName.trim()) {
-      await updateDoc(doc(db, "items", item.id), {
-        ...item,
-        name: newName.trim(),
-      });
-    }
+    setNewItem({ name: "", details: "" });
   };
 
   const claimItem = async (item, user) => {
     if (!item.claimedBy.includes(user)) {
-      const updated = [...item.claimedBy, user];
-      await updateDoc(doc(db, "items", item.id), { ...item, claimedBy: updated });
+      await updateDoc(doc(db, "items", item.id), {
+        claimedBy: arrayUnion(user),
+      });
     }
   };
 
   const returnItem = async (item, user) => {
-    const updated = item.claimedBy.filter((u) => u !== user);
-    await updateDoc(doc(db, "items", item.id), { ...item, claimedBy: updated });
+    await updateDoc(doc(db, "items", item.id), {
+      claimedBy: arrayRemove(user),
+    });
   };
 
-  const addUser = async () => {
-    const name = newUser.trim();
-    if (name && !users.includes(name)) {
-      await setDoc(doc(usersRef, name), {});
-      setNewUser("");
-    }
-  };
+  if (!currentUser) {
+    return (
+      <div className="p-6 max-w-md mx-auto">
+        <h2 className="text-xl font-bold mb-4">Login</h2>
+        <form onSubmit={login} className="space-y-4">
+          <input name="username" placeholder="Username" className="border p-2 w-full" />
+          <input type="password" name="password" placeholder="Password" className="border p-2 w-full" />
+          <button className="bg-blue-600 text-white px-4 py-2 rounded">Login</button>
+        </form>
+      </div>
+    );
+  }
 
-  const renameUser = async (oldName) => {
-    const newName = prompt("Rename user:", oldName);
-    if (!newName || newName === oldName || users.includes(newName)) return;
-
-    // 1. Create new user doc
-    await setDoc(doc(usersRef, newName), {});
-    // 2. Delete old user
-    await deleteDoc(doc(usersRef, oldName));
-    // 3. Update items
-    for (const item of items) {
-      if (item.claimedBy.includes(oldName)) {
-        const updated = item.claimedBy.map((u) => (u === oldName ? newName : u));
-        await updateDoc(doc(db, "items", item.id), { ...item, claimedBy: updated });
-      }
-    }
-  };
-
-  const deleteUser = async (user) => {
-    if (!confirm(`Delete ${user}? Their claims will be removed.`)) return;
-    await deleteDoc(doc(usersRef, user));
-    for (const item of items) {
-      if (item.claimedBy.includes(user)) {
-        const updated = item.claimedBy.filter((u) => u !== user);
-        await updateDoc(doc(db, "items", item.id), { ...item, claimedBy: updated });
-      }
-    }
-  };
+  const isAdmin = currentUser.username === "franjo";
 
   return (
-    <div className="min-h-screen p-6 bg-gray-100">
-      <div className="max-w-4xl mx-auto bg-white shadow-md rounded-xl p-6">
-        <h1 className="text-2xl font-bold mb-4 text-center">Franjo's Wish List</h1>
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold">Welcome, {currentUser.username}</h1>
 
-        {/* Add Wish */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            className="flex-1 border p-2 rounded"
-            placeholder="Add wish item"
-          />
-          <button onClick={addItem} className="bg-blue-500 text-white px-4 rounded">
-            Add
-          </button>
-        </div>
+      {isAdmin && (
+        <>
+          <div>
+            <h2 className="font-semibold">Create User</h2>
+            <div className="flex gap-2 mt-2">
+              <input
+                placeholder="Username"
+                value={newUser.username}
+                onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                className="border p-2"
+              />
+              <input
+                placeholder="Password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                className="border p-2"
+              />
+              <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
+            </div>
+            <ul className="mt-2">
+              {users.map((u) =>
+                u !== "franjo" ? (
+                  <li key={u} className="flex justify-between mt-1">
+                    <span>{u}</span>
+                    <button onClick={() => deleteUser(u)} className="text-red-500">Delete</button>
+                  </li>
+                ) : null
+              )}
+            </ul>
+          </div>
 
-        {/* Wish List */}
-        <ul className="mb-6 space-y-2">
+          <div>
+            <h2 className="font-semibold mt-6">Create Item</h2>
+            <div className="flex gap-2 mt-2">
+              <input
+                placeholder="Item name"
+                value={newItem.name}
+                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                className="border p-2"
+              />
+              <input
+                placeholder="Details"
+                value={newItem.details}
+                onChange={(e) => setNewItem({ ...newItem, details: e.target.value })}
+                className="border p-2"
+              />
+              <button onClick={createItem} className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div>
+        <h2 className="font-semibold">Wish List</h2>
+        <ul className="mt-2 space-y-2">
           {items.map((item) => (
-            <li key={item.id} className="border p-2 rounded flex justify-between items-center">
+            <li key={item.id} className="border p-2 rounded">
               <div>
-                <span
-                  onClick={() => updateItemDetails(item)}
-                  className="font-semibold cursor-pointer underline"
-                >
-                  {item.name}
-                </span>
-                {item.details && <div className="text-sm text-gray-600">{item.details}</div>}
+                <span className="font-bold">{item.name}</span> – {item.details}
               </div>
-              <div className="flex flex-wrap gap-2">
-                {users.map((user) => (
+              {!isAdmin && (
+                <div className="flex justify-between items-center mt-1">
                   <button
-                    key={user}
-                    onClick={() => claimItem(item, user)}
-                    disabled={item.claimedBy.includes(user)}
-                    className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+                    onClick={() => claimItem(item, currentUser.username)}
+                    disabled={item.claimedBy.includes(currentUser.username)}
+                    className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
                   >
-                    {user} takes
+                    {item.claimedBy.includes(currentUser.username) ? "Claimed" : "Claim"}
                   </button>
-                ))}
-                <button
-                  onClick={() => renameItem(item)}
-                  className="bg-yellow-500 text-white px-2 rounded text-xs"
-                >
-                  Rename
-                </button>
-                <button
-                  onClick={() => deleteItem(item.id)}
-                  className="bg-red-500 text-white px-2 rounded text-xs"
-                >
-                  Delete
-                </button>
-              </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>
-
-        {/* Users */}
-        <div className="mb-4 flex gap-2">
-          <input
-            type="text"
-            value={newUser}
-            onChange={(e) => setNewUser(e.target.value)}
-            className="flex-1 border p-2 rounded"
-            placeholder="Add user"
-          />
-          <button onClick={addUser} className="bg-purple-500 text-white px-4 rounded">
-            Add User
-          </button>
-        </div>
-
-        {/* User Lists */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {users.map((user) => (
-            <div key={user} className="bg-gray-50 border p-4 rounded">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="font-bold">{user}'s To Buy</h2>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => renameUser(user)}
-                    className="bg-yellow-500 text-white px-2 rounded text-xs"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    onClick={() => deleteUser(user)}
-                    className="bg-red-500 text-white px-2 rounded text-xs"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <ul className="space-y-1 text-sm">
-                {items
-                  .filter((item) => item.claimedBy.includes(user))
-                  .map((item) => {
-                    const pos = item.claimedBy.indexOf(user) + 1;
-                    const total = item.claimedBy.length;
-                    return (
-                      <li key={item.id} className="flex justify-between items-center">
-                        <span>
-                          {item.name} ({pos}/{total})
-                        </span>
-                        <button
-                          onClick={() => returnItem(item, user)}
-                          className="bg-red-400 text-white rounded px-2 text-xs"
-                        >
-                          Return
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          ))}
-        </div>
       </div>
+
+      {!isAdmin && (
+        <div>
+          <h2 className="font-semibold">My Claimed Items</h2>
+          <ul className="mt-2 space-y-2">
+            {items
+              .filter((i) => i.claimedBy.includes(currentUser.username))
+              .map((item) => {
+                const total = item.claimedBy.length;
+                return (
+                  <li key={item.id} className="border p-2 rounded flex justify-between">
+                    <span>
+                      {item.name} {item.claimedBy.map((u, i) => `${i + 1}/${total} ${u}`).join(", ")}
+                    </span>
+                    <button
+                      onClick={() => returnItem(item, currentUser.username)}
+                      className="text-red-600"
+                    >
+                      Return
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
+"""
+
+# Save to App.js
+app_js_path = Path("/mnt/data/franjo-wishlist/src/App.js")
+app_js_path.write_text(app_js)
+"/mnt/data/franjo-wishlist/src/App.js"
