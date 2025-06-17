@@ -71,6 +71,20 @@ export default function App() {
     setNewItem({ name: "", details: "" });
   };
 
+  const editItem = async (item) => {
+    const name = prompt("Item name", item.name);
+    if (name === null) return;
+    const details = prompt("Details", item.details);
+    if (details === null) return;
+    await updateDoc(doc(db, "items", item.id), { name, details });
+  };
+
+  const deleteItem = async (item) => {
+    if (window.confirm("Delete this item?")) {
+      await deleteDoc(doc(db, "items", item.id));
+    }
+  };
+
   const claimItem = async (item, user) => {
     if (!item.claimedBy.includes(user)) {
       await updateDoc(doc(db, "items", item.id), {
@@ -161,8 +175,21 @@ export default function App() {
         <ul className="mt-2 space-y-2">
           {items.map((item) => (
             <li key={item.id} className="border p-2 rounded">
-              <div>
-                <span className="font-bold">{item.name}</span> – {item.details}
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="font-bold">{item.name}</span> – {item.details}
+                  {isAdmin && (
+                    <div className="text-sm text-gray-600">
+                      {item.claimedBy.length ? `Taken by: ${item.claimedBy.join(", ")}` : "Not taken"}
+                    </div>
+                  )}
+                </div>
+                {isAdmin && (
+                  <div className="space-x-2">
+                    <button onClick={() => editItem(item)} className="text-blue-600">Edit</button>
+                    <button onClick={() => deleteItem(item)} className="text-red-600">Delete</button>
+                  </div>
+                )}
               </div>
               {!isAdmin && (
                 <div className="flex justify-between items-center mt-1">
