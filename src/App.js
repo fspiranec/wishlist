@@ -215,7 +215,11 @@ export default function App() {
     );
   }
 
-  const isAdmin = currentUser.username === "franjo";
+
+  const isAdmin = currentUser.role === "admin";
+
+
+
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -303,7 +307,11 @@ export default function App() {
               </div>
               <ul className="mt-2">
                 {users.map((u) =>
-                  u.username !== "franjo" ? (
+
+                  u.role !== "admin" ? (
+
+
+
                     <li key={u.username} className="flex justify-between mt-1">
                       <span>{u.username}</span>
                       <button onClick={() => deleteUser(u.username)} className="text-red-500">Delete</button>
